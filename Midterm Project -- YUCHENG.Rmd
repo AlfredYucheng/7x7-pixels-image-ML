@@ -1,0 +1,555 @@
+---
+title: "Applied Data Science:  Midterm Project"
+author: ""
+date: ""
+output:
+  prettydoc::html_pretty:
+  theme: cayman
+highlight: github
+---
+
+```{r setup, include=FALSE}
+set.seed(72)
+knitr::opts_chunk$set(echo = TRUE, comment="", warning = FALSE, message = FALSE, tidy.opts=list(width.cutoff=55))
+```
+
+```{r libraries, echo = FALSE}
+library(data.table)
+library(DT)
+```
+
+```{r source_files}
+
+```
+
+```{r functions}
+round.numerics <- function(x, digits){
+  if(is.numeric(x)){
+    x <- round(x = x, digits = digits)
+  }
+  return(x)
+}
+```
+
+```{r constants}
+n.values <- c(500, 1000, 2000)
+iterations <- 3
+```
+
+```{r load_data}
+train.dat = read.csv("MNIST-fashion training set-49.csv")
+train.data = fread("MNIST-fashion training set-49.csv")
+test.dat = read.csv("MNIST-fashion testing set-49.csv")
+test.data = fread("MNIST-fashion testing set-49.csv")
+```
+
+```{r clean_data}
+
+```
+
+```{r generate_samples}
+library(data.table)
+library(DT)
+library(nnet)
+#library(randomForest)
+library(class)
+
+createSets <- function(x, y, p){
+     nr <- NROW(x)
+     size <- (nr * p) %/% length(unique(y))
+     idx <- lapply(split(seq_len(nr), y), function(.x) sample(.x, size))
+     unlist(idx)
+}
+
+sampler <- function(values, iterations, data, label.name){
+  # set a seed so that the same samples are drawn every time
+  set.seed(72)
+  samples_to_return <- list()
+  
+
+  for (value in values){
+    for (i in 1:iterations){
+      ind.i <- createSets(data, data$label, value/nrow(data))
+      dat.value_i <- data[ind.i,]
+
+# THE FOLLOWING TWO LINES ARE DIFFERENT FROM BEFORE
+      dat.value_i <- dat.value_i[, `n` := value]
+      dat.value_i <- dat.value_i[, `k` := i]
+      samples_to_return <- rbindlist(l = list(samples_to_return, dat.value_i), fill = TRUE)
+    }
+  }
+  return (samples_to_return)
+}
+
+percentage.correctly.classified <- function(predicted, actual, na.rm = TRUE) {
+  return(mean(predicted == actual, na.rm = na.rm))
+}
+
+#train.data <- fread(input = train_data_file)
+#test.data <- fread(input = test_data_file)
+
+all_samples <- sampler(n.values, iterations, train.data, y.name)
+
+
+```
+
+## Introduction
+
+
+### Model 1:  
+
+
+```{r code_model1_development, eval = FALSE}
+
+```
+
+```{r load_model1}
+
+```
+
+### Model 2:  
+
+##THE KNN-5 MODULE PART
+```{r code_model2_development, eval = TRUE}
+
+library(class)
+get_KNN_stats <- function(train.data, test.data, n.rows, knn.num){
+  A <- dim(train.data)[1]/n.rows
+  
+  # measure the start time
+  setDF(train.data)
+  #train.data[,1] = lapply(train.data[,1],as.factor)
+  cl = train.data[,1]
+  toc <- Sys.time()
+  knnres = knn(test = test.data[,-1],train = train.data[,-1], cl = cl, k = knn.num)
+  
+  C <- mean(knnres != test.dat[,1])
+  
+  # measure the end time
+  tic <- Sys.time()
+  the.time <- as.numeric(x = tic-toc, units = "secs")
+  the.time <- the.time/60
+  B <- min(1, the.time)
+  points <- 0.25*A + 0.25*B + 0.5*C
+
+  return (c(A,B,C,points))
+}
+
+run_all_KNN <- function(samples, test.data, n.rows, iterations,n.values,num.digits = 4,knn.num =10){
+  # this will store the average results for each model and sample size
+  all_results <- list()
+  i <- 1
+  A <- 0
+  B <- 0
+  C <- 0
+  points <- 0
+  for (value in n.values){
+    for (i in 1:iterations){
+      train.data <- samples[n == value & k == i][, 1:50]
+      results <- get_KNN_stats(train.data, test.data, n.rows,knn.num)
+      A <- A + results[1]
+      B <- B + results[2]
+      C <- C + results[3]
+      points <- points + results[4]
+      i <- i + 1
+      # check that we have done all three sets for one sample size
+      if (i == (iterations + 1)){
+        i <- 1
+        # average the results from the the three sets for that given sample size
+        results <- data.table(Model = "K-Nearest Neighbors-10", `Sample Size` = dim(train.data)[1], 
+                              A = A/iterations, B = B/iterations, C = C/iterations, Points = points/iterations)
+        results <- results[, lapply(X = .SD, FUN = "round.numerics", digits = num.digits)]
+        all_results <- rbindlist(l = list(all_results, results), fill = TRUE)
+        # reset A, B, C, and points to calculate for next set of 3 
+        A <- 0
+        B <- 0
+        C <- 0
+        points <- 0 
+      }
+
+    }
+  }
+  return (all_results)
+}
+
+
+
+```
+
+```{r load_model2}
+run_all_KNN(all_samples,test.data,n.rows = 60000,n.values = n.values,iteration =3,knn.num = 10)
+```
+
+### Model 3:  
+
+## THE KNN - 10 MODULE PART
+```{r code_model3_development, eval = TRUE}
+library(class)
+get_KNN_stats <- function(train.data, test.data, n.rows, knn.num){
+  A <- dim(train.data)[1]/n.rows
+  
+  # measure the start time
+  setDF(train.data)
+  #train.data[,1] = lapply(train.data[,1],as.factor)
+  cl = train.data[,1]
+  toc <- Sys.time()
+  knnres = knn(test = test.data[,-1],train = train.data[,-1], cl = cl, k = knn.num)
+  
+  C <- mean(knnres != test.dat[,1])
+  
+  # measure the end time
+  tic <- Sys.time()
+  the.time <- as.numeric(x = tic-toc, units = "secs")
+  the.time <- the.time/60
+  B <- min(1, the.time)
+  points <- 0.25*A + 0.25*B + 0.5*C
+
+  return (c(A,B,C,points))
+}
+
+run_all_KNN <- function(samples, test.data, n.rows, iterations,n.values,num.digits = 4,knn.num){
+  # this will store the average results for each model and sample size
+  all_results <- list()
+  i <- 1
+  A <- 0
+  B <- 0
+  C <- 0
+  points <- 0
+  for (value in n.values){
+    for (i in 1:iterations){
+      train.data <- samples[n == value & k == i][, 1:50]
+      results <- get_KNN_stats(train.data, test.data, n.rows,knn.num)
+      A <- A + results[1]
+      B <- B + results[2]
+      C <- C + results[3]
+      points <- points + results[4]
+      i <- i + 1
+      # check that we have done all three sets for one sample size
+      if (i == (iterations + 1)){
+        i <- 1
+        # average the results from the the three sets for that given sample size
+        results <- data.table(Model = "K-Nearest Neighbors-5", `Sample Size` = dim(train.data)[1], 
+                              A = A/iterations, B = B/iterations, C = C/iterations, Points = points/iterations)
+        results <- results[, lapply(X = .SD, FUN = "round.numerics", digits = num.digits)]
+        all_results <- rbindlist(l = list(all_results, results), fill = TRUE)
+        # reset A, B, C, and points to calculate for next set of 3 
+        A <- 0
+        B <- 0
+        C <- 0
+        points <- 0 
+      }
+
+    }
+  }
+  return (all_results)
+}
+
+
+
+```
+
+```{r load_model3}
+run_all_KNN(all_samples,test.data,n.rows = 60000,n.values = n.values,iteration =3,knn.num = 5)
+```
+
+### Model 4
+
+##CALSSIFICATION TREE
+```{r code_model4_development, eval = TRUE}
+library(rpart)
+
+get_class_stats <- function(train.data, test.data, n.rows){
+  A <- dim(train.data)[1]/n.rows
+  
+  # measure the start time 
+  toc <- Sys.time()
+  classModel <- rpart(label ~., data = train.data)
+  predicted_class <- predict(classModel, test.dat,type = "class")
+  C <- mean(predicted_class != test.dat[,1])
+  
+  # measure the end time
+  tic <- Sys.time()
+  the.time <- as.numeric(x = tic-toc, units = "secs")
+  the.time <- the.time/60
+  B <- min(1, the.time)
+  points <- 0.25*A + 0.25*B + 0.5*C
+
+  return (c(A,B,C,points))
+}
+
+run_all_class <- function(samples, test.data, n.rows,n.values,iterations,num.digits = 4){
+  # this will store the average results for each model and sample size
+  all_results <- list()
+  i <- 1
+  A <- 0
+  B <- 0
+  C <- 0
+  points <- 0
+  for (value in n.values){
+    for (i in 1:iterations){
+      train.data <- samples[n == value & k == i][, 1:50]
+      results <- get_class_stats(train.data, test.data, n.rows)
+      A <- A + results[1]
+      B <- B + results[2]
+      C <- C + results[3]
+      points <- points + results[4]
+      i <- i + 1
+      # check that we have done all three sets for one sample size
+      if (i == (iterations + 1)){
+        i <- 1
+        # average the results from the the three sets for that given sample size
+        results <- data.table(Model = "Classification Tree", `Sample Size` = dim(train.data)[1], 
+                              A = A/iterations, B = B/iterations, C = C/iterations, Points = points/iterations)
+        results <- results[, lapply(X = .SD, FUN = "round.numerics", digits = num.digits)]
+        all_results <- rbindlist(l = list(all_results, results), fill = TRUE)
+        # reset A, B, C, and points to calculate for next set of 3 
+        A <- 0
+        B <- 0
+        C <- 0
+        points <- 0 
+      }
+
+    }
+  }
+  return (all_results)
+}
+
+
+
+```
+
+```{r load_model4}
+run_all_class(samples = all_samples,test.data = test.dat, n.rows = 60000,iterations = 3,n.values = n.values,num.digits = 4)
+```
+
+### Model 5
+
+#PLEASE INGONORE THE REST PART OF THE RMARKDOWN
+```{r code_model5_development, eval = TRUE}
+#original version
+library(class)
+get_KNN_stats <- function(train.data, test.data, n.rows, knn.num){
+  A <- dim(train.data)[1]/n.rows
+  
+  # measure the start time
+  num.per.group = n.rows / knn.num
+  cl = train.data[,1]
+  toc <- Sys.time()
+  knnres = knn(test = test.data[,-1],train = train.data[,-1], cl = cl, k = knn.num)
+  
+  C <- mean(knnres != test.dat[,1])
+  
+  # measure the end time
+  tic <- Sys.time()
+  the.time <- as.numeric(x = tic-toc, units = "secs")
+  the.time <- the.time/60
+  B <- min(1, the.time)
+  points <- 0.25*A + 0.25*B + 0.5*C
+
+  return (c(A,B,C,points))
+}
+
+run_all_KNN <- function(samples, test.data, n.rows, iterations,num.digits = 4,knn.num =5){
+  # this will store the average results for each model and sample size
+  all_results <- list()
+  i <- 1
+  A <- 0
+  B <- 0
+  C <- 0
+  points <- 0
+  for (train.data in samples){
+    results <- get_KNN_stats(train.data, test.data, n.rows, knn.num)
+    A <- A + results[1]
+    B <- B + results[2]
+    C <- C + results[3]
+    points <- points + results[4]
+    i <- i + 1
+    # check that we have done all three sets for one sample size
+    if (i == (iterations + 1)){
+      i <- 1
+      # average the results from the the three sets for that given sample size
+      results <- data.table(Model = "Model 2", `Sample Size` = dim(train.data)[1], A = A/iterations, B = B/iterations, C = C/iterations, Points = points/iterations)
+      results <- results[, lapply(X = .SD, FUN = "round.numerics", digits = num.digits)]
+      all_results <- rbindlist(l = list(all_results, results), fill = TRUE)
+      # reset A, B, C, and points to calculate for next set of 3 
+      A <- 0
+      B <- 0
+      C <- 0
+      points <- 0 
+    }
+  }
+  return (all_results)
+}
+
+
+```
+
+```{r load_model2}
+run_all_KNN(all_samples,test.dat,n.rows = 60000,iteration =3,knn.num = 10)
+```
+
+```{r load_model5}
+
+```
+
+### Model 6
+
+
+```{r code_model6_development, eval = TRUE}
+
+```
+
+```{r load_model6}
+
+```
+
+### Model 7
+
+
+```{r code_model7_development, eval = TRUE}
+
+```
+
+```{r load_model7}
+
+```
+
+### Model 8
+
+
+```{r code_model8_development, eval = TRUE}
+#model4 original v
+library(rpart)
+
+get_class_stats <- function(train.data, test.data, n.rows){
+  A <- dim(train.data)[1]/n.rows
+  
+  # measure the start time 
+  toc <- Sys.time()
+  classModel <- rpart(label ~., data = train.data)
+  predicted_class <- predict(classModel, test.dat,type = "class")
+  C <- mean(predicted_class != test.dat[,1])
+  
+  # measure the end time
+  tic <- Sys.time()
+  the.time <- as.numeric(x = tic-toc, units = "secs")
+  the.time <- the.time/60
+  B <- min(1, the.time)
+  points <- 0.25*A + 0.25*B + 0.5*C
+
+  return (c(A,B,C,points))
+}
+
+run_all_class <- function(samples, test.data, n.rows,n.values iterations,num.digits = 4){
+  # this will store the average results for each model and sample size
+  all_results <- list()
+  i <- 1
+  A <- 0
+  B <- 0
+  C <- 0
+  points <- 0
+  for (train.data in samples){
+    results <- get_class_stats(train.data, test.data, n.rows)
+    A <- A + results[1]
+    B <- B + results[2]
+    C <- C + results[3]
+    points <- points + results[4]
+    i <- i + 1
+    # check that we have done all three sets for one sample size
+    if (i == (iterations + 1)){
+      i <- 1
+      # average the results from the the three sets for that given sample size
+      results <- data.table(Model = "Model 4", `Sample Size` = dim(train.data)[1], A = A/iterations, B = B/iterations, C = C/iterations, Points = points/iterations)
+      results <- results[, lapply(X = .SD, FUN = "round.numerics", digits = num.digits)]
+      all_results <- rbindlist(l = list(all_results, results), fill = TRUE)
+      # reset A, B, C, and points to calculate for next set of 3 
+      A <- 0
+      B <- 0
+      C <- 0
+      points <- 0 
+    }
+  }
+  return (all_results)
+}
+
+```
+
+```{r load_model8}
+
+```
+
+### Model 9
+
+
+```{r code_model9_development, eval = TRUE}
+library(data.table)
+library(DT)
+library(nnet)
+#library(randomForest)
+library(class)
+
+createSets <- function(x, y, p){
+     nr <- NROW(x)
+     size <- (nr * p) %/% length(unique(y))
+     idx <- lapply(split(seq_len(nr), y), function(.x) sample(.x, size))
+     unlist(idx)
+}
+
+sampler <- function(values, iterations, data, label.name){
+  # set a seed so that the same samples are drawn every time
+  set.seed(72)
+  samples_to_return <- list()
+  
+
+  for (value in values){
+    for (i in 1:iterations){
+      ind.i <- createSets(data, data$label, value/nrow(data))
+      dat.value_i <- data[ind.i,]
+
+# THE FOLLOWING TWO LINES ARE DIFFERENT FROM BEFORE
+      dat.value_i <- dat.value_i[, `n` := value]
+      dat.value_i <- dat.value_i[, `k` := i]
+      samples_to_return <- rbindlist(l = list(samples_to_return, dat.value_i), fill = TRUE)
+    }
+  }
+  return (samples_to_return)
+}
+
+percentage.correctly.classified <- function(predicted, actual, na.rm = TRUE) {
+  return(mean(predicted == actual, na.rm = na.rm))
+}
+
+#train.data <- fread(input = train_data_file)
+#test.data <- fread(input = test_data_file)
+
+all_samples <- sampler(n.values, iterations, train.data, y.name)
+
+```
+
+```{r load_model9}
+
+```
+
+### Model 10
+
+
+```{r code_model10_development, eval = TRUE}
+
+```
+
+```{r load_model10}
+
+```
+
+## Scoreboard
+
+```{r scoreboard}
+
+```
+
+## Discussion
+
+
+## References
+
+
